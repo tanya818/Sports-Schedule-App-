@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Training &amp; Rehab Planner</title>
+<title>AdjustAthlete</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Oswald:wght@500;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap');
   * { box-sizing: border-box; }
@@ -134,7 +134,7 @@
 
 <div class="header">
   <div class="eyebrow">Week-by-week · adaptive · runs in your browser</div>
-  <h1 class="title">Training &amp; Rehab Planner</h1>
+  <h1 class="title">AdjustAthlete</h1>
   <p class="subtitle">Tell it your sport and goal — it builds one week at a time and adjusts based on how you felt.</p>
 </div>
 
@@ -149,24 +149,95 @@ const TYPE_COLORS = {
 const state = {
   apiKey: localStorage.getItem("trp_groq_key") || "",
   tavilyKey: localStorage.getItem("trp_tavily_key") || "",
-  profile: JSON.parse(localStorage.getItem("trp_profile") || "null") || { sport: "", position: "", goal: "", injuryNotes: "", fitnessLevel: "Intermediate", daysPerWeek: "4", equipment: "Full gym" },
-  coachNotes: localStorage.getItem("trp_coach_notes") || "",
-  reminderTime: localStorage.getItem("trp_reminder_time") || "",
-  reminderEnabled: localStorage.getItem("trp_reminder_enabled") === "1",
+  account: localStorage.getItem("trp_current_account") || null,
+  authError: "",
+  profile: { sport: "", position: "", goal: "", injuryNotes: "", fitnessLevel: "Intermediate", daysPerWeek: "4", equipment: "Full gym" },
+  coachNotes: "",
+  reminderTime: "",
+  reminderEnabled: false,
   lastFiredDate: "",
-  started: localStorage.getItem("trp_started") === "1",
-  weeks: JSON.parse(localStorage.getItem("trp_weeks") || "[]"),
+  started: false,
+  weeks: [],
   collapsedWeeks: {},
   feedback: "",
   loading: false,
   error: ""
 };
 
+function accountKey(account, name) {
+  return `trp_acct_${account}_${name}`;
+}
+
+async function sha256Hex(text) {
+  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, "0")).join("");
+}
+
+function loadAccountData(account) {
+  state.profile = JSON.parse(localStorage.getItem(accountKey(account, "profile")) || "null") || { sport: "", position: "", goal: "", injuryNotes: "", fitnessLevel: "Intermediate", daysPerWeek: "4", equipment: "Full gym" };
+  state.weeks = JSON.parse(localStorage.getItem(accountKey(account, "weeks")) || "[]");
+  state.coachNotes = localStorage.getItem(accountKey(account, "coach_notes")) || "";
+  state.reminderTime = localStorage.getItem(accountKey(account, "reminder_time")) || "";
+  state.reminderEnabled = localStorage.getItem(accountKey(account, "reminder_enabled")) === "1";
+  state.started = localStorage.getItem(accountKey(account, "started")) === "1";
+  state.collapsedWeeks = {};
+  state.feedback = "";
+  state.error = "";
+}
+
 function persistSession() {
-  localStorage.setItem("trp_profile", JSON.stringify(state.profile));
-  localStorage.setItem("trp_weeks", JSON.stringify(state.weeks));
-  localStorage.setItem("trp_started", state.started ? "1" : "0");
-  localStorage.setItem("trp_coach_notes", state.coachNotes);
+  if (!state.account || state.account === "guest") return;
+  localStorage.setItem(accountKey(state.account, "profile"), JSON.stringify(state.profile));
+  localStorage.setItem(accountKey(state.account, "weeks"), JSON.stringify(state.weeks));
+  localStorage.setItem(accountKey(state.account, "started"), state.started ? "1" : "0");
+  localStorage.setItem(accountKey(state.account, "coach_notes"), state.coachNotes);
+}
+
+async function handleLogin() {
+  const username = document.getElementById("authUsername").value.trim();
+  const password = document.getElementById("authPassword").value;
+  if (!username || !password) {
+    state.authError = "Enter a username and password.";
+    render();
+    return;
+  }
+  const accounts = JSON.parse(localStorage.getItem("trp_accounts") || "{}");
+  const hash = await sha256Hex(password);
+  if (accounts[username] && accounts[username] !== hash) {
+    state.authError = "Wrong password for that username.";
+    render();
+    return;
+  }
+  if (!accounts[username]) {
+    accounts[username] = hash;
+    localStorage.setItem("trp_accounts", JSON.stringify(accounts));
+  }
+  state.authError = "";
+  state.account = username;
+  localStorage.setItem("trp_current_account", username);
+  loadAccountData(username);
+  render();
+}
+
+function handleGuestLogin() {
+  state.authError = "";
+  state.account = "guest";
+  state.profile = { sport: "", position: "", goal: "", injuryNotes: "", fitnessLevel: "Intermediate", daysPerWeek: "4", equipment: "Full gym" };
+  state.weeks = [];
+  state.coachNotes = "";
+  state.reminderTime = "";
+  state.reminderEnabled = false;
+  state.started = false;
+  state.collapsedWeeks = {};
+  state.feedback = "";
+  state.error = "";
+  render();
+}
+
+function handleLogout() {
+  state.account = null;
+  localStorage.removeItem("trp_current_account");
+  render();
 }
 
 function toggleWeek(weekNumber) {
@@ -278,13 +349,14 @@ async function generateWeek(weekNumber, priorFeedback) {
   state.loading = true; state.error = ""; state.researching = true; render();
 
   const p = state.profile;
-  const searchQuery = `physician-reviewed sports medicine physical therapy protocol evidence-based ${p.sport} training program ${p.goal} ${p.injuryNotes ? "rehab for " + p.injuryNotes : ""} week ${weekNumber}`.trim();
+  const requestText = [state.coachNotes.trim(), (priorFeedback || "").trim()].filter(Boolean).join(". ");
+  const searchQuery = `physician-reviewed sports medicine physical therapy protocol evidence-based ${p.sport} training program ${p.goal} ${p.injuryNotes ? "rehab for " + p.injuryNotes : ""} ${requestText} week ${weekNumber}`.trim();
   const searchResults = await searchWeb(searchQuery);
   state.researching = false;
   render();
 
   const researchBlock = searchResults.length
-    ? `\nRecent research findings to ground this plan in (cite the general practice, not the URL, in your coachNote where relevant):\n` +
+    ? `\nThese results were searched specifically to address the athlete's own request above (coach notes / check-in feedback) — ground this week's plan in them instead of generic assumptions (cite the general practice, not the URL, in your coachNote where relevant):\n` +
       searchResults.map((r, i) => `${i + 1}. ${r.title}: ${r.snippet}`).join("\n") + "\n"
     : "";
 
@@ -330,7 +402,7 @@ Generate Week ${weekNumber} only. Respond with ONLY valid JSON, no markdown fenc
   "coachNote": "one short safety/progression note for this week"
 }
 
-Include all 7 days (Monday-Sunday). For every day that isn't Rest or Recovery, include a FULL session of 6 to 8 distinct exercises/drills — a real training day always has a warm-up, main work, and accessory/finisher movements, never just 1-2 items. Rest/Recovery days can have 0-2 light items. Across the week, VARY the muscle group emphasis on Strength days — do not target the same muscle group (e.g. legs) in every Strength session. Rotate through upper body, lower body, and full-body/power work so no single muscle group is overloaded every session, while still supporting the sport's specific demands. Every exercise you select MUST match the athlete's stated equipment/gym access. If equipment is "Full gym," you MUST actually make use of that access — prioritize barbell lifts (squat, deadlift, bench, row, overhead press variations), racks, cable stacks, machines, and free weights as the backbone of Strength days, not just dumbbells or bodyweight; only use simpler equipment for warm-ups, accessories, or where it's genuinely the better choice. If equipment is more limited (dumbbells only, bands only, bodyweight only), select the best possible substitutes for that constraint instead. Never default to a generic minimal-equipment routine when the athlete has told you they have more available. Base the structure and exercise selection on standard, physician- and physical-therapist-reviewed practice (the kind found in ACSM, NSCA, or clinical sports medicine guidelines) — not an invented or minimal routine. Only place real training on up to ${p.daysPerWeek} days; mark the remaining days as "Rest" or "Recovery". If injury history is significant, bias toward rehab-safe progressions and mention when the athlete should consult a physical therapist in the coachNote.${searchResults.length ? " Prioritize the research findings above over generic assumptions where they're relevant." : ""}`;
+Include all 7 days (Monday-Sunday). For every day that isn't Rest or Recovery, include a FULL session of 6 to 8 distinct exercises/drills — a real training day always has a warm-up, main work, and accessory/finisher movements, never just 1-2 items. Rest/Recovery days can have 0-2 light items. Across the week, VARY the muscle group emphasis on Strength days — do not target the same muscle group (e.g. legs) in every Strength session. Rotate through upper body, lower body, and full-body/power work so no single muscle group is overloaded every session, while still supporting the sport's specific demands. Every exercise you select MUST match the athlete's stated equipment/gym access. If equipment is "Full gym," you MUST actually make use of that access — prioritize barbell lifts (squat, deadlift, bench, row, overhead press variations), racks, cable stacks, machines, and free weights as the backbone of Strength days, not just dumbbells or bodyweight; only use simpler equipment for warm-ups, accessories, or where it's genuinely the better choice. If equipment is more limited (dumbbells only, bands only, bodyweight only), select the best possible substitutes for that constraint instead. Never default to a generic minimal-equipment routine when the athlete has told you they have more available. Base the structure and exercise selection on standard, physician- and physical-therapist-reviewed practice (the kind found in ACSM, NSCA, or clinical sports medicine guidelines) — not an invented or minimal routine. Only place real training on up to ${p.daysPerWeek} days; mark the remaining days as "Rest" or "Recovery". If injury history is significant, bias toward rehab-safe progressions and mention when the athlete should consult a physical therapist in the coachNote.${searchResults.length ? " The research above was searched specifically for this athlete's request (coach notes / check-in feedback), not generic filler — you MUST ground your plan in it rather than falling back on generic assumptions when it's relevant." : ""}`;
 
   try {
     const text = await callGroq(prompt, 4096);
@@ -382,7 +454,7 @@ function requestReminderPermission() {
   Notification.requestPermission().then(perm => {
     if (perm === "granted") {
       state.reminderEnabled = true;
-      localStorage.setItem("trp_reminder_enabled", "1");
+      if (state.account !== "guest") localStorage.setItem(accountKey(state.account, "reminder_enabled"), "1");
     }
     render();
   });
@@ -391,7 +463,7 @@ function requestReminderPermission() {
 function handleReminderTimeChange() {
   const val = document.getElementById("reminderTimeInput").value;
   state.reminderTime = val;
-  localStorage.setItem("trp_reminder_time", val);
+  if (state.account !== "guest") localStorage.setItem(accountKey(state.account, "reminder_time"), val);
 }
 
 function checkReminder() {
@@ -420,6 +492,38 @@ function handleNextWeek() {
 function render() {
   const app = document.getElementById("app");
   let html = "";
+
+  if (!state.account) {
+    html += `
+      <div class="card">
+        <div class="field">
+          <label>Username</label>
+          <input id="authUsername" placeholder="Pick a username">
+        </div>
+        <div class="field">
+          <label>Password</label>
+          <input id="authPassword" type="password" placeholder="Pick a password">
+        </div>
+        <button class="btn" id="loginBtn">Log In / Sign Up</button>
+        ${state.authError ? `<div class="error">${state.authError}</div>` : ""}
+        <div class="keynote" style="margin-top:12px;">First time with that username creates the account automatically. Data is saved only in this browser, on this device — there's no server, so this isn't secure against anyone else with access to this browser.</div>
+      </div>
+      <div class="card" style="text-align:center;">
+        <button class="btn" id="guestBtn" style="background:transparent;border:1px solid #C15A2E;color:#C15A2E;">Continue as Guest</button>
+        <div class="keynote">Guest sessions aren't saved — closing the tab or refreshing loses your plan. Create an account above to keep it.</div>
+      </div>`;
+    app.innerHTML = html;
+    const loginBtn = document.getElementById("loginBtn");
+    if (loginBtn) loginBtn.onclick = handleLogin;
+    const guestBtn = document.getElementById("guestBtn");
+    if (guestBtn) guestBtn.onclick = handleGuestLogin;
+    return;
+  }
+
+  html += `<div class="row" style="align-items:center; margin-bottom:4px;">
+    <div class="keynote" style="margin-top:0;">Signed in as <strong style="color:#EDEAE0;">${state.account}</strong>${state.account === "guest" ? " (not saved — refresh loses this)" : ""}</div>
+    <button id="logoutBtn" style="background:transparent;border:none;color:#C15A2E;font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:0.08em;text-transform:uppercase;cursor:pointer;flex:0 0 auto;">Log Out</button>
+  </div>`;
 
   if (!state.started) {
     html += `
@@ -573,6 +677,8 @@ function render() {
   if (saveNotesBtn) saveNotesBtn.onclick = handleSaveCoachNotes;
   const resetBtn = document.getElementById("resetBtn");
   if (resetBtn) resetBtn.onclick = resetPlan;
+  const logoutBtn = document.getElementById("logoutBtn");
+  if (logoutBtn) logoutBtn.onclick = handleLogout;
   document.querySelectorAll(".week-head").forEach(el => {
     el.onclick = () => toggleWeek(Number(el.dataset.week));
   });
@@ -581,7 +687,7 @@ function render() {
 }
 
 render();
-if (state.started && state.weeks.length === 0 && !state.loading) {
+if (state.account && state.started && state.weeks.length === 0 && !state.loading) {
   generateWeek(1, "");
 }
 </script>
