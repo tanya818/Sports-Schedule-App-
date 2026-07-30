@@ -1,0 +1,589 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Training &amp; Rehab Planner</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Oswald:wght@500;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap');
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: #14181C;
+    color: #EDEAE0;
+    font-family: 'Inter', sans-serif;
+  }
+  .banner {
+    background: #1E252B;
+    border-bottom: 1px solid rgba(237,234,224,0.1);
+    padding: 10px 20px;
+    font-size: 12.5px;
+    color: #9AA3A0;
+    text-align: center;
+    line-height: 1.5;
+  }
+  .header { padding: 40px 24px 20px; text-align: center; }
+  .eyebrow {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.15em;
+    color: #C15A2E;
+    text-transform: uppercase;
+  }
+  .title {
+    font-family: 'Oswald', sans-serif;
+    font-weight: 700;
+    font-size: clamp(28px, 5vw, 42px);
+    margin: 6px 0 0;
+    text-transform: uppercase;
+  }
+  .subtitle { color: #9AA3A0; font-size: 14px; margin-top: 8px; }
+  .container { max-width: 640px; margin: 0 auto; padding: 0 20px 60px; }
+  .card {
+    background: #1E252B;
+    border: 1px solid rgba(237,234,224,0.08);
+    border-radius: 10px;
+    padding: 24px;
+    margin-top: 24px;
+  }
+  .field { margin-bottom: 16px; }
+  .field label {
+    display: block;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #9AA3A0;
+    margin-bottom: 6px;
+  }
+  .field input, .field select, .field textarea {
+    width: 100%;
+    background: #14181C;
+    border: 1px solid rgba(237,234,224,0.15);
+    border-radius: 6px;
+    padding: 10px 12px;
+    color: #EDEAE0;
+    font-family: 'Inter', sans-serif;
+    font-size: 14px;
+  }
+  .field input:focus, .field select:focus, .field textarea:focus {
+    outline: 2px solid #C15A2E;
+    outline-offset: 1px;
+  }
+  .row { display: flex; gap: 12px; }
+  .row .field { flex: 1; }
+  .btn {
+    background: #C15A2E;
+    color: #14181C;
+    border: none;
+    border-radius: 6px;
+    padding: 12px 20px;
+    font-family: 'Oswald', sans-serif;
+    font-weight: 700;
+    font-size: 14px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    cursor: pointer;
+    width: 100%;
+  }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .keynote { font-size: 12px; color: #7E8783; margin-top: 8px; line-height: 1.5; }
+  .keynote a { color: #C15A2E; }
+  .week-block { margin-top: 28px; }
+  .week-head {
+    border-bottom: 1px solid rgba(237,234,224,0.1);
+    padding-bottom: 10px;
+    margin-bottom: 14px;
+  }
+  .week-num { font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #C15A2E; letter-spacing: 0.1em; }
+  .week-focus { font-family: 'Oswald', sans-serif; font-size: 20px; font-weight: 700; text-transform: uppercase; margin-top: 2px; }
+  .week-head { cursor: pointer; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  .week-head:hover .week-focus { color: #C15A2E; }
+  .week-chevron { font-family: 'IBM Plex Mono', monospace; font-size: 14px; color: #7E8783; transition: transform 0.15s ease; flex-shrink: 0; }
+  .week-block.collapsed .week-chevron { transform: rotate(-90deg); }
+  .week-body { overflow: hidden; }
+  .week-block.collapsed .week-body { display: none; }
+  .week-block.collapsed .week-head { border-bottom: none; padding-bottom: 0; }
+  .day-row { display: grid; grid-template-columns: 90px 1fr; gap: 14px; padding: 12px 0; border-bottom: 1px solid rgba(237,234,224,0.06); }
+  .day-name { font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #9AA3A0; }
+  .day-type { font-family: 'Oswald', sans-serif; font-size: 15px; font-weight: 700; margin-bottom: 6px; }
+  .lane { display: flex; gap: 2px; margin-bottom: 8px; }
+  .lane-block { width: 8px; height: 8px; border-radius: 2px; }
+  .item { font-size: 13.5px; color: #C9C6BD; padding: 3px 0; }
+  .item-name { color: #EDEAE0; font-weight: 500; }
+  .item-meta { font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #C15A2E; margin-left: 6px; }
+  .item-notes { color: #7E8783; font-style: italic; margin-left: 6px; }
+  .coach-note {
+    margin-top: 12px;
+    background: rgba(193,90,46,0.08);
+    border-left: 3px solid #C15A2E;
+    padding: 10px 14px;
+    font-size: 13px;
+    color: #D9C9BE;
+  }
+  .error { color: #E08585; font-size: 13px; margin-top: 10px; }
+  .loading { text-align: center; padding: 30px; color: #9AA3A0; font-family: 'IBM Plex Mono', monospace; font-size: 13px; }
+  .legend { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 20px; }
+  .legend span { font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; display: flex; align-items: center; gap: 5px; color: #9AA3A0; }
+  .legend .dot { width: 8px; height: 8px; border-radius: 2px; }
+</style>
+</head>
+<body>
+
+<div class="banner">Educational planning tool, not a substitute for a licensed coach or physical therapist — especially for injury rehab.</div>
+
+<div class="header">
+  <div class="eyebrow">Week-by-week · adaptive · runs in your browser</div>
+  <h1 class="title">Training &amp; Rehab Planner</h1>
+  <p class="subtitle">Tell it your sport and goal — it builds one week at a time and adjusts based on how you felt.</p>
+</div>
+
+<div class="container" id="app"></div>
+
+<script>
+const TYPE_COLORS = {
+  Strength: "#C15A2E", Rehab: "#8FA6C9", Skill: "#4C7A3F",
+  Conditioning: "#D98A3D", Recovery: "#6E7B70", Rest: "#3A4148"
+};
+
+const state = {
+  apiKey: localStorage.getItem("trp_groq_key") || "",
+  tavilyKey: localStorage.getItem("trp_tavily_key") || "",
+  profile: JSON.parse(localStorage.getItem("trp_profile") || "null") || { sport: "", position: "", goal: "", injuryNotes: "", fitnessLevel: "Intermediate", daysPerWeek: "4", equipment: "Full gym" },
+  coachNotes: localStorage.getItem("trp_coach_notes") || "",
+  reminderTime: localStorage.getItem("trp_reminder_time") || "",
+  reminderEnabled: localStorage.getItem("trp_reminder_enabled") === "1",
+  lastFiredDate: "",
+  started: localStorage.getItem("trp_started") === "1",
+  weeks: JSON.parse(localStorage.getItem("trp_weeks") || "[]"),
+  collapsedWeeks: {},
+  feedback: "",
+  loading: false,
+  error: ""
+};
+
+function persistSession() {
+  localStorage.setItem("trp_profile", JSON.stringify(state.profile));
+  localStorage.setItem("trp_weeks", JSON.stringify(state.weeks));
+  localStorage.setItem("trp_started", state.started ? "1" : "0");
+  localStorage.setItem("trp_coach_notes", state.coachNotes);
+}
+
+function toggleWeek(weekNumber) {
+  state.collapsedWeeks[weekNumber] = !state.collapsedWeeks[weekNumber];
+  render();
+}
+
+function resetPlan() {
+  state.started = false;
+  state.weeks = [];
+  state.feedback = "";
+  state.error = "";
+  persistSession();
+  render();
+}
+
+function stripFences(text) {
+  return text.replace(/^```(json)?/i, "").replace(/```$/i, "").trim();
+}
+
+function lane(intensity, type) {
+  const color = TYPE_COLORS[type] || "#C15A2E";
+  let html = '<div class="lane">';
+  for (let i = 0; i < 10; i++) {
+    const filled = i < intensity;
+    html += `<span class="lane-block" style="background:${filled ? color : 'rgba(237,234,224,0.08)'}"></span>`;
+  }
+  return html + "</div>";
+}
+
+async function searchWeb(query) {
+  if (!state.tavilyKey) return [];
+  try {
+    const res = await fetch("https://api.tavily.com/search", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        api_key: state.tavilyKey,
+        query: query,
+        search_depth: "basic",
+        max_results: 5
+      })
+    });
+    const data = await res.json();
+    if (data.error) return [];
+    return (data.results || []).map(r => ({
+      title: r.title,
+      url: r.url,
+      snippet: (r.content || "").slice(0, 500)
+    }));
+  } catch (e) {
+    return [];
+  }
+}
+
+async function callGroq(promptText, maxTokens) {
+  const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${state.apiKey}`
+    },
+    body: JSON.stringify({
+      model: "llama-3.3-70b-versatile",
+      messages: [{ role: "user", content: promptText }],
+      max_tokens: maxTokens
+    })
+  });
+  const data = await res.json();
+  if (data.error) throw new Error(data.error.message || "API error");
+  return data.choices[0].message.content;
+}
+
+async function expandDay(day, profile) {
+  const expandPrompt = `You are a strength & conditioning / rehab specialist. This training day for a ${profile.sport} athlete is too thin.
+
+Day type: ${day.type}
+Equipment/gym access: ${profile.equipment || "Full gym"}
+Current exercises: ${JSON.stringify(day.items || [])}
+
+A real session of this type needs 6 to 8 total exercises (warm-up, main work, accessory/finisher), following standard physician/physical-therapist-reviewed practice. If equipment is "Full gym," actually use barbells, racks, cables, and machines as the backbone — don't default to only dumbbells or bodyweight. If equipment is more limited, use the best substitutes for that constraint. Keep any good existing exercises and add more to reach that range.
+
+Respond with ONLY a valid JSON array (no markdown fences, no preamble) of ALL exercises for this day, in this exact schema:
+[{"name": "string", "sets": number or null, "reps": "string or null", "notes": "string"}]`;
+
+  try {
+    const text = await callGroq(expandPrompt, 1200);
+    const items = JSON.parse(stripFences(text));
+    if (Array.isArray(items) && items.length > (day.items || []).length) {
+      day.items = items;
+    }
+  } catch (e) {
+    // leave day as-is if the repair call fails
+  }
+}
+
+async function ensureFullDays(plan, profile) {
+  const trainingDays = (plan.days || []).filter(
+    d => d.type !== "Rest" && d.type !== "Recovery" && (d.items || []).length < 6
+  );
+  for (const day of trainingDays) {
+    state.expanding = true; render();
+    await expandDay(day, profile);
+  }
+  state.expanding = false;
+}
+
+async function generateWeek(weekNumber, priorFeedback) {
+  state.loading = true; state.error = ""; state.researching = true; render();
+
+  const p = state.profile;
+  const searchQuery = `physician-reviewed sports medicine physical therapy protocol evidence-based ${p.sport} training program ${p.goal} ${p.injuryNotes ? "rehab for " + p.injuryNotes : ""} week ${weekNumber}`.trim();
+  const searchResults = await searchWeb(searchQuery);
+  state.researching = false;
+  render();
+
+  const researchBlock = searchResults.length
+    ? `\nRecent research findings to ground this plan in (cite the general practice, not the URL, in your coachNote where relevant):\n` +
+      searchResults.map((r, i) => `${i + 1}. ${r.title}: ${r.snippet}`).join("\n") + "\n"
+    : "";
+
+  const priorContext = state.weeks.length === 0
+    ? "This is the athlete's first week. Start conservatively and establish a baseline."
+    : `Previous week's focus was: "${state.weeks[state.weeks.length - 1].focus}".
+Athlete's check-in after that week: "${priorFeedback || "No issues reported."}"
+
+This check-in is a DIRECT INSTRUCTION from the athlete, not just background context — follow it exactly, don't hedge toward caution against it:
+- If they report pain, soreness, or a setback: increase rehab emphasis / reduce load as needed.
+- If they report something is healed, feels good, or explicitly say to remove/stop rehab work: STOP scheduling "Rehab" type days entirely and shift that time to Strength, Skill, or Conditioning work instead. Do not keep any rehab-labeled days out of leftover caution once the athlete has told you it's resolved.
+- If they report missed days or fatigue: adjust volume/intensity accordingly, don't just repeat the prior week unchanged.`;
+
+  const coachNotesBlock = state.coachNotes.trim()
+    ? `\nStanding coach notes for this athlete (always follow these): "${state.coachNotes.trim()}"\n`
+    : "";
+  const prompt = `You are a certified strength & conditioning coach and rehab specialist. Create ONE week of a training/rehab plan.
+
+Athlete profile:
+- Sport: ${p.sport}
+- Position/Role: ${p.position || "Not specified"}
+- Primary goal: ${p.goal}
+- Injury history / current issues (background only — see check-in below for current status): ${p.injuryNotes || "None reported"}
+- Current fitness level: ${p.fitnessLevel}
+- Training days available: ${p.daysPerWeek} per week
+- Equipment / gym access: ${p.equipment || "Full gym"}
+${coachNotesBlock}
+${researchBlock}
+${priorContext}
+
+Generate Week ${weekNumber} only. Respond with ONLY valid JSON, no markdown fences, no preamble or explanation, matching exactly this schema:
+{
+  "weekNumber": ${weekNumber},
+  "focus": "short phrase describing this week's emphasis",
+  "days": [
+    {
+      "day": "Monday",
+      "type": "Strength | Rehab | Skill | Conditioning | Recovery | Rest",
+      "intensity": 1-10 number,
+      "items": [{"name": "string", "sets": number or null, "reps": "string or null", "notes": "string"}]
+    }
+  ],
+  "coachNote": "one short safety/progression note for this week"
+}
+
+Include all 7 days (Monday-Sunday). For every day that isn't Rest or Recovery, include a FULL session of 6 to 8 distinct exercises/drills — a real training day always has a warm-up, main work, and accessory/finisher movements, never just 1-2 items. Rest/Recovery days can have 0-2 light items. Across the week, VARY the muscle group emphasis on Strength days — do not target the same muscle group (e.g. legs) in every Strength session. Rotate through upper body, lower body, and full-body/power work so no single muscle group is overloaded every session, while still supporting the sport's specific demands. Every exercise you select MUST match the athlete's stated equipment/gym access. If equipment is "Full gym," you MUST actually make use of that access — prioritize barbell lifts (squat, deadlift, bench, row, overhead press variations), racks, cable stacks, machines, and free weights as the backbone of Strength days, not just dumbbells or bodyweight; only use simpler equipment for warm-ups, accessories, or where it's genuinely the better choice. If equipment is more limited (dumbbells only, bands only, bodyweight only), select the best possible substitutes for that constraint instead. Never default to a generic minimal-equipment routine when the athlete has told you they have more available. Base the structure and exercise selection on standard, physician- and physical-therapist-reviewed practice (the kind found in ACSM, NSCA, or clinical sports medicine guidelines) — not an invented or minimal routine. Only place real training on up to ${p.daysPerWeek} days; mark the remaining days as "Rest" or "Recovery". If injury history is significant, bias toward rehab-safe progressions and mention when the athlete should consult a physical therapist in the coachNote.${searchResults.length ? " Prioritize the research findings above over generic assumptions where they're relevant." : ""}`;
+
+  try {
+    const text = await callGroq(prompt, 4096);
+    const parsed = JSON.parse(stripFences(text));
+    await ensureFullDays(parsed, p);
+    parsed.sources = searchResults;
+    state.weeks.forEach(w => { state.collapsedWeeks[w.weekNumber] = true; });
+    state.weeks.push(parsed);
+    state.feedback = "";
+    persistSession();
+  } catch (e) {
+    state.error = "Couldn't generate that week (" + e.message + "). Check your API key and try again.";
+  } finally {
+    state.loading = false;
+    render();
+  }
+}
+
+function handleStart() {
+  const key = document.getElementById("apiKeyInput").value.trim();
+  if (key) { state.apiKey = key; localStorage.setItem("trp_groq_key", key); }
+  const tKey = document.getElementById("tavilyKeyInput").value.trim();
+  if (tKey) { state.tavilyKey = tKey; localStorage.setItem("trp_tavily_key", tKey); }
+  state.profile.sport = document.getElementById("sport").value;
+  state.profile.position = document.getElementById("position").value;
+  state.profile.fitnessLevel = document.getElementById("fitnessLevel").value;
+  state.profile.goal = document.getElementById("goal").value;
+  state.profile.injuryNotes = document.getElementById("injuryNotes").value;
+  state.profile.daysPerWeek = document.getElementById("daysPerWeek").value;
+  state.profile.equipment = document.getElementById("equipment").value;
+  state.coachNotes = document.getElementById("coachNotes").value;
+  state.started = true;
+  persistSession();
+  generateWeek(1, "");
+}
+
+function handleSaveCoachNotes() {
+  state.coachNotes = document.getElementById("coachNotesLive").value;
+  persistSession();
+  render();
+}
+
+function requestReminderPermission() {
+  if (!("Notification" in window)) {
+    state.error = "This browser doesn't support notifications while the tab is open.";
+    render();
+    return;
+  }
+  Notification.requestPermission().then(perm => {
+    if (perm === "granted") {
+      state.reminderEnabled = true;
+      localStorage.setItem("trp_reminder_enabled", "1");
+    }
+    render();
+  });
+}
+
+function handleReminderTimeChange() {
+  const val = document.getElementById("reminderTimeInput").value;
+  state.reminderTime = val;
+  localStorage.setItem("trp_reminder_time", val);
+}
+
+function checkReminder() {
+  if (!state.reminderEnabled || !state.reminderTime || Notification.permission !== "granted") return;
+  const now = new Date();
+  const hhmm = now.toTimeString().slice(0, 5);
+  const todayStr = now.toDateString();
+  if (hhmm === state.reminderTime && state.lastFiredDate !== todayStr) {
+    const weekday = now.toLocaleDateString("en-US", { weekday: "long" });
+    const latestWeek = state.weeks[state.weeks.length - 1];
+    const dayPlan = latestWeek && latestWeek.days.find(d => d.day === weekday);
+    const body = dayPlan
+      ? `${dayPlan.type}${dayPlan.items && dayPlan.items[0] ? " — " + dayPlan.items[0].name : ""}`
+      : "Check your training plan for today.";
+    new Notification("Today's session is ready", { body });
+    state.lastFiredDate = todayStr;
+  }
+}
+setInterval(checkReminder, 20000);
+
+function handleNextWeek() {
+  state.feedback = document.getElementById("feedbackInput").value;
+  generateWeek(state.weeks.length + 1, state.feedback);
+}
+
+function render() {
+  const app = document.getElementById("app");
+  let html = "";
+
+  if (!state.started) {
+    html += `
+      <div class="card">
+        <div class="field">
+          <label>Groq API Key</label>
+          <input id="apiKeyInput" type="password" placeholder="Paste your free API key" value="${state.apiKey}">
+          <div class="keynote">Free — sign up at <a href="https://console.groq.com/keys" target="_blank">console.groq.com/keys</a> and create a key (no payment info needed). Uses the free Llama 3.3 70B model. Saved only in this browser, on this device.</div>
+        </div>
+        <div class="field">
+          <label>Tavily API Key (for real web research)</label>
+          <input id="tavilyKeyInput" type="password" placeholder="Paste your free API key" value="${state.tavilyKey}">
+          <div class="keynote">Free — sign up at <a href="https://tavily.com" target="_blank">tavily.com</a> (1,000 free searches/month, no card needed). Before each week, the app searches the web for evidence-based practices for this sport/goal/injury and feeds real results into the plan. Optional — leave blank to skip.</div>
+        </div>
+        <div class="field">
+          <label>Sport</label>
+          <input id="sport" placeholder="e.g. Soccer, Basketball, Track (400m)" value="${state.profile.sport}">
+        </div>
+        <div class="row">
+          <div class="field">
+            <label>Position / Role</label>
+            <input id="position" placeholder="e.g. Midfielder" value="${state.profile.position}">
+          </div>
+          <div class="field">
+            <label>Fitness Level</label>
+            <select id="fitnessLevel">
+              <option ${state.profile.fitnessLevel === "Beginner" ? "selected" : ""}>Beginner</option>
+              <option ${state.profile.fitnessLevel === "Intermediate" ? "selected" : ""}>Intermediate</option>
+              <option ${state.profile.fitnessLevel === "Advanced" ? "selected" : ""}>Advanced</option>
+            </select>
+          </div>
+        </div>
+        <div class="field">
+          <label>Primary Goal</label>
+          <input id="goal" placeholder="e.g. Return to play after ankle sprain, improve vertical jump" value="${state.profile.goal}">
+        </div>
+        <div class="field">
+          <label>Injury History / Current Issues</label>
+          <textarea id="injuryNotes" rows="3" placeholder="e.g. Grade 1 ankle sprain 3 weeks ago, cleared for light activity">${state.profile.injuryNotes}</textarea>
+        </div>
+        <div class="field">
+          <label>Training Days Available Per Week</label>
+          <select id="daysPerWeek">
+            ${[2,3,4,5,6].map(n => `<option value="${n}" ${state.profile.daysPerWeek == n ? "selected" : ""}>${n} days/week</option>`).join("")}
+          </select>
+        </div>
+        <div class="field">
+          <label>Equipment / Gym Access</label>
+          <select id="equipment">
+            <option ${state.profile.equipment === "Full gym" ? "selected" : ""}>Full gym</option>
+            <option ${state.profile.equipment === "Home gym (barbell + rack)" ? "selected" : ""}>Home gym (barbell + rack)</option>
+            <option ${state.profile.equipment === "Dumbbells only" ? "selected" : ""}>Dumbbells only</option>
+            <option ${state.profile.equipment === "Resistance bands only" ? "selected" : ""}>Resistance bands only</option>
+            <option ${state.profile.equipment === "Bodyweight only" ? "selected" : ""}>Bodyweight only</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Coach Notes (optional — things it should always remember)</label>
+          <textarea id="coachNotes" rows="2" placeholder="e.g. Avoid running entirely, this athlete prefers morning sessions, go easy on the left knee">${state.coachNotes}</textarea>
+        </div>
+        <button class="btn" id="startBtn">Generate Week 1</button>
+      </div>`;
+  }
+
+  if (state.started) {
+    html += `<div class="legend">` + Object.entries(TYPE_COLORS).map(([type,color]) =>
+      `<span><span class="dot" style="background:${color}"></span>${type}</span>`).join("") + `</div>`;
+
+    const notifSupported = "Notification" in window;
+    const notifGranted = notifSupported && Notification.permission === "granted";
+    html += `<div class="card">
+      <div class="field">
+        <label>Daily Reminder</label>
+        <input type="time" id="reminderTimeInput" value="${state.reminderTime}">
+      </div>
+      ${notifGranted
+        ? `<div class="keynote">Reminders are on for ${state.reminderTime || "no time set yet"}. Only fires while this tab is open in your browser.</div>`
+        : `<button class="btn" id="enableReminderBtn" style="margin-bottom:8px;">Enable Workout Reminders</button>
+           <div class="keynote">${notifSupported ? "Only works while this tab stays open — closed-tab push notifications need a real server, which this file doesn't have." : "This browser doesn't support notifications for a plain page like this one."}</div>`
+      }
+      <div class="field" style="margin-top:16px;">
+        <label>Coach Notes</label>
+        <textarea id="coachNotesLive" rows="2" placeholder="Things the plan should always account for">${state.coachNotes}</textarea>
+      </div>
+      <button class="btn" id="saveNotesBtn">Save Coach Notes</button>
+      <button class="btn" id="resetBtn" style="background:transparent;border:1px solid #C15A2E;color:#C15A2E;margin-top:10px;">Start New Plan / Edit Profile</button>
+    </div>`;
+  }
+
+  state.weeks.forEach(week => {
+    const collapsed = !!state.collapsedWeeks[week.weekNumber];
+    const trainingDays = (week.days || []).filter(d => d.type !== "Rest" && d.type !== "Recovery").length;
+    html += `<div class="week-block${collapsed ? " collapsed" : ""}">
+      <div class="week-head" data-week="${week.weekNumber}">
+        <div>
+          <div class="week-num">WEEK ${week.weekNumber}</div>
+          <div class="week-focus">${week.focus}</div>
+          ${collapsed ? `<div class="keynote" style="margin-top:2px;">${trainingDays} training day${trainingDays === 1 ? "" : "s"} · tap to expand</div>` : ""}
+        </div>
+        <div class="week-chevron">▾</div>
+      </div>
+      <div class="week-body">`;
+    (week.days || []).forEach(d => {
+      html += `<div class="day-row">
+        <div class="day-name">${d.day}</div>
+        <div>
+          <div class="day-type" style="color:${TYPE_COLORS[d.type] || "#EDEAE0"}">${d.type}</div>
+          ${lane(d.intensity, d.type)}
+          ${(d.items || []).map(it => `
+            <div class="item">
+              <span class="item-name">${it.name}</span>
+              ${(it.sets || it.reps) ? `<span class="item-meta">${it.sets ? it.sets + " × " : ""}${it.reps || ""}</span>` : ""}
+              ${it.notes ? `<span class="item-notes"> — ${it.notes}</span>` : ""}
+            </div>`).join("")}
+        </div>
+      </div>`;
+    });
+    if (week.coachNote) html += `<div class="coach-note">${week.coachNote}</div>`;
+    if (week.sources && week.sources.length) {
+      html += `<div class="keynote" style="margin-top:8px;">Researched: ` +
+        week.sources.map(s => `<a href="${s.url}" target="_blank">${s.title}</a>`).join(" · ") +
+        `</div>`;
+    }
+    html += `</div></div>`;
+  });
+
+  if (state.loading) html += `<div class="loading">${state.researching ? "Researching evidence-based practices…" : state.expanding ? "Filling out thin sessions…" : "Building the plan…"}</div>`;
+  if (state.error) html += `<div class="error">${state.error}</div>`;
+
+  if (state.started && !state.loading && state.weeks.length > 0) {
+    html += `<div class="card">
+      <div class="field">
+        <label>How did Week ${state.weeks.length} go?</label>
+        <textarea id="feedbackInput" rows="3" placeholder="e.g. Ankle felt good, no pain on lateral drills. Skipped Thursday — felt fatigued.">${state.feedback}</textarea>
+      </div>
+      <button class="btn" id="nextBtn">Log &amp; Generate Week ${state.weeks.length + 1}</button>
+    </div>`;
+  }
+
+  app.innerHTML = html;
+
+  const startBtn = document.getElementById("startBtn");
+  if (startBtn) startBtn.onclick = handleStart;
+  const nextBtn = document.getElementById("nextBtn");
+  if (nextBtn) nextBtn.onclick = handleNextWeek;
+  const enableReminderBtn = document.getElementById("enableReminderBtn");
+  if (enableReminderBtn) enableReminderBtn.onclick = requestReminderPermission;
+  const reminderTimeInput = document.getElementById("reminderTimeInput");
+  if (reminderTimeInput) reminderTimeInput.onchange = handleReminderTimeChange;
+  const saveNotesBtn = document.getElementById("saveNotesBtn");
+  if (saveNotesBtn) saveNotesBtn.onclick = handleSaveCoachNotes;
+  const resetBtn = document.getElementById("resetBtn");
+  if (resetBtn) resetBtn.onclick = resetPlan;
+  document.querySelectorAll(".week-head").forEach(el => {
+    el.onclick = () => toggleWeek(Number(el.dataset.week));
+  });
+
+  window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" });
+}
+
+render();
+if (state.started && state.weeks.length === 0 && !state.loading) {
+  generateWeek(1, "");
+}
+</script>
+</body>
+</html>
