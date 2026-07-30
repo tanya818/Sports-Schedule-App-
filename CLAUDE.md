@@ -1,2 +1,2 @@
-/init a website
+A website
 
